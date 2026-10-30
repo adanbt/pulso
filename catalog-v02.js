@@ -107,12 +107,13 @@ const photoIDs={
  lat_pulldown:'Wide-Grip_Lat_Pulldown',seated_row:'Seated_Cable_Rows',db_row:'One-Arm_Dumbbell_Row',face_pull:'Face_Pull',biceps_curl:'Dumbbell_Bicep_Curl',hammer_curl:'Alternate_Hammer_Curl',
  bench_press:'Barbell_Bench_Press_-_Medium_Grip',incline_press:'Incline_Dumbbell_Press',chest_fly:'Dumbbell_Flyes',shoulder_press:'Dumbbell_Shoulder_Press',lateral_raise:'Side_Lateral_Raise',triceps_push:'Triceps_Pushdown',
  leg_press:'Leg_Press',back_squat:'Barbell_Squat',hip_thrust:'Barbell_Hip_Thrust',leg_curl:'Lying_Leg_Curls',plank:'Plank',pec_deck:'Butterfly',leg_extension:'Leg_Extensions',
- curl_bar:'Barbell_Curl',curl_preacher:'Preacher_Curl',hammer_rope:'Cable_Hammer_Curls_-_Rope_Attachment',hammer_cross:'Cross_Body_Hammer_Curl',
- neutral_pulldown:'Close-Grip_Front_Lat_Pulldown',assisted_pullup:'Assisted_Pull-Up',chest_supported_row:'Dumbbell_Incline_Row',single_cable_row:'One_Arm_Cable_Row',rear_delt_fly:'Reverse_Flyes',
- bench_db:'Dumbbell_Bench_Press',machine_chest_press:'Leverage_Chest_Press',incline_barbell:'Barbell_Incline_Bench_Press_-_Medium_Grip',cable_fly:'Cable_Crossover',shoulder_machine:'Leverage_Shoulder_Press',
- lateral_cable:'Cable_Lateral_Raise',hack_squat:'Hack_Squat',
- glute_bridge:'Barbell_Glute_Bridge',seated_leg_curl:'Seated_Leg_Curl',seated_calf:'Seated_Calf_Raise'
+ curl_cable:'Standing_Biceps_Cable_Curl',curl_bar:'Barbell_Curl',curl_preacher:'Preacher_Curl',hammer_rope:'Cable_Hammer_Curls_-_Rope_Attachment',hammer_cross:'Cross_Body_Hammer_Curl',triceps_rope:'Triceps_Pushdown_-_Rope_Attachment',
+ neutral_pulldown:'Close-Grip_Front_Lat_Pulldown',chest_supported_row:'Dumbbell_Incline_Row',single_cable_row:'One_Arm_Cable_Row',rear_delt_fly:'Reverse_Flyes',
+ bench_db:'Dumbbell_Bench_Press',machine_chest_press:'Leverage_Chest_Press',incline_machine:'Leverage_Incline_Chest_Press',incline_barbell:'Barbell_Incline_Bench_Press_-_Medium_Grip',cable_fly:'Cable_Crossover',shoulder_machine:'Leverage_Shoulder_Press',
+ hack_squat:'Hack_Squat',
+ glute_bridge:'Barbell_Glute_Bridge',standing_calf:'Standing_Barbell_Calf_Raise',seated_leg_curl:'Seated_Leg_Curl',seated_calf:'Seated_Calf_Raise',
+ goblet_squat:'Goblet_Squat',rdl:'Romanian_Deadlift',hip_abduction:'Thigh_Abductor',calf_raise:'Standing_Calf_Raises'
 };
 for(const e of data.exercises){e.photoId=photoIDs[e.id]||null}
-data.version='0.2';
+data.version='0.4';
 })();

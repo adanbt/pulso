@@ -14,3 +14,6 @@
 .duplicate-option{opacity:.82;border-left:3px solid #d7aa7f!important;padding-left:8px!important}
 .duplicate-option .warn{font-size:11px}
 .library-item .photo-frame{flex-shrink:0}
+
+/* PULSO 0.4: fichas más accesibles y reportes de cargas */
+.photo-placeholder small{font-size:10px;color:#aabbb3;display:inline-block;margin-top:5px}.photo-placeholder{line-height:1.4}.panel details{margin-top:8px;line-height:1.5}.panel summary{cursor:pointer;color:var(--accent)}.warn-tip{border-left-color:#efb589}.exercise-card button,.schedule-card button{touch-action:manipulation}
