@@ -17,3 +17,16 @@
 
 /* PULSO 0.4: fichas más accesibles y reportes de cargas */
 .photo-placeholder small{font-size:10px;color:#aabbb3;display:inline-block;margin-top:5px}.photo-placeholder{line-height:1.4}.panel details{margin-top:8px;line-height:1.5}.panel summary{cursor:pointer;color:var(--accent)}.warn-tip{border-left-color:#efb589}.exercise-card button,.schedule-card button{touch-action:manipulation}
+
+/* PULSO 0.5 · Bienvenida / configuración inicial */
+button[hidden]{display:none!important}
+.welcome-wrap{max-width:500px;margin:0 auto;padding:25px 0 50px}
+.welcome-symbol{display:grid;place-items:center;width:76px;height:76px;border-radius:24px;border:2px solid var(--accent);font-size:46px;font-weight:900;margin:30px 0 26px;letter-spacing:-3px}
+.welcome-symbol span,.welcome-headline span{color:var(--accent)}
+.welcome-headline{font-size:42px;line-height:1.04;letter-spacing:-1.8px;margin:12px 0 18px}
+.welcome-feature{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px;margin:24px 0;line-height:2;color:#d3e8d8;font-size:14px}
+.welcome-progress{display:flex;gap:7px;margin:8px 0 26px}.welcome-progress span{flex:1;height:5px;border-radius:3px;background:#29423f}.welcome-progress span.active{background:var(--accent)}
+.welcome-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin:10px 0 4px}.welcome-day{background:#193035;border:1px solid #4c6766;border-radius:12px;min-height:44px;color:#c1d4d0;font-weight:700;font-size:12px;padding:7px 0}.welcome-day.selected{background:#c5ef78;border-color:#c5ef78;color:#142319}
+.welcome-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:12px 0;font-size:13px}.welcome-summary:first-child{padding-top:0}.welcome-summary:last-child{border-bottom:0;padding-bottom:0}.welcome-summary span{color:var(--muted)}.welcome-summary strong{text-align:right}
+.onboard-cancel{display:block;margin-left:auto;color:#a7bfba;border:0;background:transparent;padding:4px 0 16px;font-size:12px;text-decoration:underline}
+@media(max-width:380px){.welcome-headline{font-size:36px}.welcome-day{font-size:11px}.welcome-wrap{padding-top:10px}}
