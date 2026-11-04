@@ -34,6 +34,7 @@ window.PULSO_DATA = {
   B:{name:'Pecho, hombros y tríceps',subtitle:'Empuje · pectoral y tren superior',exerciseIds:['bench_press','incline_press','chest_fly','shoulder_press','lateral_raise','triceps_push']},
   C:{name:'Piernas y glúteos',subtitle:'Tren inferior · fuerza y estabilidad',exerciseIds:['leg_press','rdl','split_squat','hip_thrust','leg_curl','calf_raise']},
   FB1:{name:'Cuerpo completo · A',subtitle:'Adaptada para semanas con menos días',exerciseIds:['leg_press','bench_press','lat_pulldown','rdl','lateral_raise','dead_bug']},
-  FB2:{name:'Cuerpo completo · B',subtitle:'Adaptada para semanas con menos días',exerciseIds:['goblet_squat','incline_press','seated_row','hip_thrust','triceps_push','biceps_curl']}
+  FB2:{name:'Cuerpo completo · B',subtitle:'Adaptada para semanas con menos días',exerciseIds:['goblet_squat','incline_press','seated_row','hip_thrust','triceps_push','biceps_curl']},
+  FBX:{name:'Full body · Extra',subtitle:'Complementaria · volumen moderado (2 series por ejercicio)',exerciseIds:['leg_press','incline_press','seated_row','rdl','lateral_raise','dead_bug']}
  }
 };

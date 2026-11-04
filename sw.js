@@ -1,5 +1,5 @@
-/* PULSO 0.6 — código network-first; biblioteca offline tras preparación. */
-const VERSION='pulso-v06-1';
+/* PULSO 0.7 — código network-first; biblioteca offline tras preparación. */
+const VERSION='pulso-v07-1';
 const PHOTO_CACHE='pulso-photos-v02';
 const ASSETS=['./','./index.html','./app.js','./data.js','./catalog-v02.js','./technique-v06.js','./styles.css','./manifest.webmanifest','./assets/icons/icon-192.png','./assets/icons/icon-512.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(VERSION).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));

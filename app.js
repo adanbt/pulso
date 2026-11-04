@@ -1,4 +1,4 @@
-/* PULSO 0.6 — registro ágil, descansos visibles, rutina flexible. */
+/* PULSO 0.7 — registro ágil, descansos visibles, rutina flexible. */
 (()=>{'use strict';
 const DATA=window.PULSO_DATA;
 const $=(s,root=document)=>root.querySelector(s);
@@ -65,12 +65,32 @@ function autoPlan(w){
  st.plans[w]=assignments;persist();return assignments
 }
 function completedAt(date){return st.history.filter(x=>x.date===date)}
+function swapPlannedDays(dateA,dateB){
+ if(dateA===dateB)return;
+ const planA=planFor(weekStart(parseDate(dateA))),planB=planFor(weekStart(parseDate(dateB)));
+ const pA=planA[dateA],pB=planB[dateB];if(!pA||!pB)return;
+ planA[dateA]={...pB,minutes:pA.minutes||pB.minutes||75,auto:false};
+ planB[dateB]={...pA,minutes:pB.minutes||pA.minutes||75,auto:false};
+ persist();
+}
+function recommendedExtraDate(w=thisWeek()){
+ const sat=iso(addDays(parseDate(w),5)),today=tdy();
+ return sat;
+}
+function targetMin(ex){const m=String(ex?.reps||'').match(/^\s*(\d+)/);return m?Number(m[1]):0}
+function setReasonText(reason){if(!reason)return '';return [reason.kind,reason.detail].filter(Boolean).join(' · ')}
 function thisWeek(){return weekStart(new Date())}
 function dayLabel(date){const d=parseDate(date);return `${FULL[d.getDay()]} ${d.getDate()}`}
 function descPlan(p){if(!p||p.type==='rest')return 'Descanso / actividad libre';if(p.type==='cardio')return 'Cardio Z2 · running, bici o caminata';return DATA.routines[p.routineId]?.name||'Fuerza'}
 function weeklyData(w){const plan=planFor(w);return Object.keys(plan).sort().map(date=>({date,p:plan[date],done:completedAt(date)}))}
 function actualSession(date){const w=weekStart(parseDate(date));return planFor(w)[date]}
-function suggestNext(){const today=tdy(),w=thisWeek(),items=weeklyData(w);const upcoming=items.find(x=>x.date>=today&&(x.p.type==='strength'||x.p.type==='cardio')&&!x.done.length);return upcoming||items.find(x=>(x.p.type==='strength'||x.p.type==='cardio')&&!x.done.length)||{date:today,p:{type:'strength',routineId:'A',minutes:90},done:[]}}
+function suggestNext(){
+ const today=tdy(),items=weeklyData(thisWeek());
+ const upcoming=items.find(x=>x.date>=today&&x.p.type!=='rest'&&!x.done.length)
+  ||items.find(x=>x.date<today&&x.p.type!=='rest'&&!x.done.length);
+ if(upcoming)return upcoming;
+ return{date:today,p:{type:'strength',routineId:'FBX',minutes:60,auto:false,extra:true},done:[],extraSuggestion:true};
+}
 function timeAgo(isoStr){return isoStr?new Date(isoStr).toLocaleDateString('es-CL',{day:'numeric',month:'short'}):''}
 function iconFor(type){return type==='strength'?'✦':type==='cardio'?'↗':'·'}
 function displayWeek(w,compact=false){const arr=weeklyData(w);return `<div class="week-strip">${arr.map(({date,p,done})=>{const d=parseDate(date);return `<button class="day-box ${date===tdy()?'today':''}" data-action="day-detail" data-date="${date}" aria-label="${esc(dayLabel(date))}: ${esc(descPlan(p))}"><span class="day-name">${DAY[d.getDay()]}</span><span class="day-number">${d.getDate()}</span><span class="day-dot ${done.length?'done':p.type==='strength'?'strength':p.type==='cardio'?'cardio':''}"></span></button>`}).join('')}</div>`}
@@ -78,11 +98,11 @@ function cardSchedule(item){const {date,p,done}=item;return `<div class="schedul
 function statsWeek(){const since=parseDate(thisWeek());let strength=0,cardio=0,min=0;for(const x of st.history){if(parseDate(x.date)>=since){if(x.kind==='strength')strength++;if(x.kind==='cardio')cardio++;min+=(x.kind==='cardio'?x.duration||0:x.z2?.duration||0)}}return{strength,cardio,min}}
 function screenHome(){const stats=statsWeek(),next=suggestNext(),isActive=!!st.active;const upcoming=next.p.type==='strength'?DATA.routines[next.p.routineId]:null;const s=st.weights.at(-1);const vals=weeklyData(thisWeek());const count=vals.filter(x=>x.p.type!=='rest').length;
  return `<div class="eyebrow">TU CENTRO DE ENTRENAMIENTO</div><h1 class="title">${st.profile?.name?`Hola, ${esc(st.profile.name)}.<br/>`:'Un día a la vez.<br/>'}<span class="accent">Sigue avanzando.</span></h1><p class="muted small paragraph">Tu rutina se adapta a las semanas ocupadas, no al revés.</p>
- <section class="hero"><span class="eyebrow" style="font-size:10px">${isActive?'SESIÓN EN CURSO':next.date===tdy()?'PLAN PARA HOY':'PRÓXIMO ENTRENAMIENTO'}</span><h2>${isActive?esc(st.active.kind==='strength'?DATA.routines[st.active.routineId].name:'Cardio Z2'):esc(upcoming?.name||'Cardio Z2')}</h2><div class="hero-sub">${isActive?'Retoma donde quedaste, con tus series guardadas.':`${next.date===tdy()?'Hoy':dayLabel(next.date)} · ${next.p.minutes||90} minutos disponibles`}</div><div class="pill-row"><span class="pill">${isActive?'Guardado automático':next.p.type==='cardio'?'A tu ritmo':'Calentamiento incluido'}</span><span class="pill">${isActive?'Sin perder progreso':next.p.type==='cardio'?'Bajo impacto disponible':`${st.settings.z2} min Z2 opcionales`}</span></div><button class="btn btn-primary btn-block" data-action="${isActive?'goto-session':'start-home'}">${isActive?'▶ Continuar entrenamiento':'▶ Iniciar entrenamiento'}</button></section>
+ <section class="hero"><span class="eyebrow" style="font-size:10px">${isActive?'SESIÓN EN CURSO':next.extraSuggestion?'PLAN SEMANAL COMPLETADO':next.date===tdy()?'PLAN PARA HOY':'PRÓXIMO ENTRENAMIENTO'}</span><h2>${isActive?esc(st.active.kind==='strength'?DATA.routines[st.active.routineId].name:'Cardio Z2'):esc(upcoming?.name||'Cardio Z2')}</h2><div class="hero-sub">${isActive?'Retoma donde quedaste, con tus series guardadas.':next.extraSuggestion?'Sesión opcional de cuerpo completo: prioriza recuperarte si entrenaste hace poco.':`${next.date===tdy()?'Hoy':dayLabel(next.date)} · ${next.p.minutes||90} minutos disponibles`}</div><div class="pill-row"><span class="pill">${isActive?'Guardado automático':next.p.type==='cardio'?'A tu ritmo':'Calentamiento incluido'}</span><span class="pill">${isActive?'Sin perder progreso':next.p.type==='cardio'?'Bajo impacto disponible':`${st.settings.z2} min Z2 opcionales`}</span></div><button class="btn btn-primary btn-block" data-action="${isActive?'goto-session':next.extraSuggestion?'extra-session':'start-home'}" ${!isActive&&next.extraSuggestion?'data-date=+tdy()+':''}>${isActive?'▶ Continuar entrenamiento':next.extraSuggestion?'＋ Añadir full body extra':'▶ Iniciar entrenamiento'}</button></section>
  <div class="stat-grid"><div class="stat"><strong>${stats.strength}<span class="accent">/${esc(st.settings.strengthDays??3)}</span></strong><span>Gimnasio esta semana</span></div><div class="stat"><strong>${stats.cardio}<span class="accent">/${esc(st.settings.cardioDays??2)}</span></strong><span>Sesiones cardio</span></div><div class="stat"><strong>${s?Number(s.kg).toFixed(1):st.settings.startWeight!=null?Number(st.settings.startWeight).toFixed(1):'—'} <span style="font-size:13px">${s||st.settings.startWeight!=null?'kg':''}</span></strong><span>${s?'Último peso':'Peso de referencia'}</span></div></div>
  <section class="section"><div class="section-head"><h2 class="h2">Esta semana</h2><button class="btn btn-outline btn-sm" data-action="nav" data-view="plan">Ajustar plan →</button></div>${displayWeek(thisWeek())}<p class="small muted" style="margin-top:10px">${count} sesiones planificadas · pulsa un día para editarlo.</p></section>
  <section class="section"><div class="section-head"><h2 class="h2">Tus próximos días</h2></div><div class="panel">${vals.filter(x=>x.p.type!=='rest'&&x.date>=tdy()).slice(0,3).map(cardSchedule).join('')||'<div class="empty">Sin sesiones pendientes esta semana.</div>'}</div></section>
- <section class="section"><div class="section-head"><h2 class="h2">Acceso rápido</h2></div><div class="two-col"><button class="btn btn-secondary" data-action="quick-cardio">+ Registrar cardio</button><button class="btn btn-secondary" data-action="quick-weight">+ Registrar peso</button></div></section>
+ <section class="section"><div class="section-head"><h2 class="h2">Acceso rápido</h2></div><div class="two-col"><button class="btn btn-secondary" data-action="quick-cardio">+ Registrar cardio</button><button class="btn btn-secondary" data-action="extra-session" data-date="${tdy()}">＋ Gimnasio extra</button><button class="btn btn-secondary" data-action="quick-weight">+ Registrar peso</button></div></section>
  <p class="footer-note">PULSO funciona sin cuentas ni suscripciones. Tus datos permanecen en este dispositivo hasta que los exportes.</p>`}
 function screenPlan(){const wd=selectedWeek,mon=parseDate(wd),sun=addDays(mon,6),cfg=getConfig(wd),hist=weeklyData(wd);
  return `<div class="eyebrow">PLANIFICACIÓN ADAPTABLE</div><h1 class="title">Tu semana,<br/><span class="accent">a tu manera.</span></h1><p class="muted small paragraph">Indica los minutos disponibles. PULSO reorganiza fuerza y cardio sin dejar sistemáticamente un grupo muscular pendiente.</p>
@@ -91,7 +111,7 @@ function screenPlan(){const wd=selectedWeek,mon=parseDate(wd),sun=addDays(mon,6)
  ${[1,2,3,4,5,6,0].map(d=>`<div class="day-settings"><strong>${DAY[d]}</strong><select data-field="week-minutes" data-day="${d}" aria-label="Minutos del ${FULL[d]}">${[0,30,45,60,75,90,105].map(m=>`<option value="${m}" ${Number(cfg[d]?.minutes||0)===m?'selected':''}>${m===0?'Sin tiempo':`${m} min`}</option>`).join('')}</select><select data-field="week-pref" data-day="${d}" aria-label="Preferencia ${FULL[d]}">${[['auto','Flexible'],['strength','Gimnasio'],['cardio','Cardio'],['rest','Libre']].map(([v,l])=>`<option value="${v}" ${cfg[d]?.pref===v?'selected':''}>${l}</option>`).join('')}</select></div>`).join('')}
  <div class="button-row" style="margin-top:14px"><button class="btn btn-secondary btn-flex" data-action="preset-week" data-preset="busy">Semana ocupada</button><button class="btn btn-secondary btn-flex" data-action="preset-week" data-preset="normal">Habitual</button></div><button class="btn btn-primary btn-block" style="margin-top:8px" data-action="autoplan">↻ Reorganizar esta semana</button></div>
  <section class="section"><div class="section-head"><h2 class="h2">Plan propuesto</h2><span class="chip ghost">Editable</span></div>${displayWeek(wd)}<div class="panel" style="margin-top:12px">${hist.map(cardSchedule).join('')}</div></section>
- <div class="tip">Si solo caben 1–2 sesiones de fuerza, la aplicación pasa automáticamente a entrenamientos de cuerpo completo. Puedes editar o intercambiar dos días desde el calendario, sin perder tu historial.</div>`}
+ <button class="btn btn-secondary btn-block" style="margin:12px 0" data-action="extra-session" data-date="${recommendedExtraDate(wd)}">＋ Añadir día extra de gimnasio (sugerencia full body)</button><div class="tip">Si solo caben 1–2 sesiones de fuerza, la aplicación pasa automáticamente a entrenamientos de cuerpo completo. Puedes editar o intercambiar dos días desde el calendario, sin perder tu historial.</div>`}
 function completedSets(){return st.active?.exercises?.reduce((t,e)=>t+e.sets.filter(s=>s.done&&!s.warmup).length,0)||0}
 function totalSets(){return st.active?.exercises?.reduce((t,e)=>t+e.sets.filter(s=>!s.warmup).length,0)||0}
 function lastExerciseNote(id){for(const h of [...st.history].reverse()){if(h.kind!=='strength')continue;const it=h.exercises?.find(e=>e.id===id);if(it?.loadNote)return it.loadNote}return ''}
@@ -107,13 +127,24 @@ function sessionExerciseIds(routineId,minutesAvailable){
   B:['bench_press','incline_press','lateral_raise','triceps_push','shoulder_press'],
   C:['leg_press','rdl','hip_thrust','leg_curl','calf_raise'],
   FB1:['leg_press','bench_press','lat_pulldown','rdl','dead_bug'],
-  FB2:['goblet_squat','incline_press','seated_row','hip_thrust','biceps_curl']
+  FB2:['goblet_squat','incline_press','seated_row','hip_thrust','biceps_curl'],
+  FBX:['leg_press','incline_press','seated_row','rdl','dead_bug']
  }[routineId]||ids;
  return key.filter(id=>ids.includes(id)).slice(0,minutesAvailable<=45?4:5);
 }
-async function startSession(date,routineId,minute){if(st.active){view='session';render();return}const p=actualSession(date);const type=routineId==='cardio'?'cardio':'strength',r=routineId==='cardio'?null:DATA.routines[routineId];if(type==='strength'&&!r){toast('Rutina no encontrada');return}
- st.active=type==='strength'?{id:Date.now(),kind:'strength',date,routineId,startTime:Date.now(),limit:minute||p?.minutes||90,exercises:sessionExerciseIds(routineId,minute||p?.minutes||90).map(id=>createEx(id,(minute||p?.minutes||90)<=60)),restUntil:0,restExercise:null,z2:{type:'walk',duration:0,distance:'',hr:'',pain:'0'}}:{id:Date.now(),kind:'cardio',date,startTime:Date.now(),cardio:{type:st.settings.preferredCardio,duration:30,distance:'',hr:'',pain:'0',notes:''}};
- await persistNow();view='session';render();window.scrollTo(0,0)}
+async function startSession(plannedDate,routineId,minute,options={}){
+ if(st.active){view='session';render();return}
+ const actualDate=tdy(),p=actualSession(plannedDate),type=routineId==='cardio'?'cardio':'strength';
+ const r=type==='cardio'?null:DATA.routines[routineId];
+ if(type==='strength'&&!r){toast('Rutina no encontrada');return}
+ const limit=Number(minute||p?.minutes||75),extra=Boolean(options.extra||p?.extra||routineId==='FBX');
+ const xs=type==='strength'?sessionExerciseIds(routineId,limit).map(id=>createEx(id,limit<=60)):[];
+ if(extra)for(const e of xs){let work=0;e.sets=e.sets.filter(set=>set.warmup||++work<=2)}
+ const common={id:Date.now(),kind:type,date:actualDate,plannedDate,extra,startTime:Date.now()};
+ st.active=type==='strength'?{...common,routineId,limit,exercises:xs,restUntil:0,restExercise:null,z2:{type:'walk',duration:0,distance:'',hr:'',pain:'0'}}
+ :{...common,cardio:{type:st.settings.preferredCardio,duration:30,distance:'',hr:'',pain:'0',notes:''}};
+ await persistNow();view='session';render();window.scrollTo(0,0);
+}
 const isTimed=ex=>ex?.unit==='seconds'||/\d\s*s\b/i.test(ex?.reps||'');
 function techniqueSteps(ex){
  const steps=technique.details?.[ex.id]||technique.patterns?.[ex.pose]||[];
@@ -135,7 +166,7 @@ function screenSession(){const a=st.active;if(!a)return `<div class="eyebrow">RE
  if(a.kind==='cardio')return `<button class="back-link" data-action="nav" data-view="home">← Volver al inicio</button><div class="eyebrow">SESIÓN EN CURSO · CARDIO</div><h1 class="title">Movimiento a tu ritmo.</h1><p class="muted small">Puedes cambiar a bicicleta o caminata si aparecen molestias articulares.</p><div class="panel"><div class="field"><label>Actividad</label><select data-field="cardio-type">${cardioOptions(a.cardio.type)}</select></div><div class="form-grid" style="margin-top:12px"><div class="field"><label>Duración (min)</label><input data-field="cardio-duration" type="number" min="1" max="300" step="1" value="${esc(a.cardio.duration)}" /></div><div class="field"><label>Distancia (km, opcional)</label><input data-field="cardio-distance" type="number" min="0" max="500" step="0.1" placeholder="Ej: 3.5" value="${esc(a.cardio.distance)}" /></div><div class="field"><label>FC promedio (opcional)</label><input data-field="cardio-hr" type="number" min="40" max="230" step="1" placeholder="lpm" value="${esc(a.cardio.hr)}" /></div><div class="field"><label>Molestia articular (0–10)</label><select data-field="cardio-pain">${Array.from({length:11},(_,i)=>`<option ${String(a.cardio.pain)===String(i)?'selected':''}>${i}</option>`).join('')}</select></div></div><div class="tip" style="margin-top:14px">Z2: intensidad suave y sostenible. Usa tu banda para orientarte, pero evita perseguir una frecuencia específica si causa molestias.</div></div><section class="section"><button class="btn btn-primary btn-block" data-action="finish-cardio">✓ Guardar sesión de cardio</button><button class="btn btn-outline btn-block" style="margin-top:8px" data-action="cancel-session">Descartar sesión</button></section>`;
  const routine=DATA.routines[a.routineId],done=completedSets(),total=totalSets();return `<button class="back-link" data-action="nav" data-view="home">← Volver al inicio</button><div class="eyebrow">ENTRENAMIENTO ACTIVO · ${esc(a.routineId)}</div><h1 class="title">${esc(routine.name)}</h1><div class="chips"><span class="chip">${done}/${total} series</span><span class="chip ghost">${a.limit} min disponibles</span><span class="chip ghost" id="elapsed-label">${formatTime(Math.floor((Date.now()-a.startTime)/1000))} transcurridos</span></div><div class="progress-track"><div style="width:${total?Math.round(done/total*100):0}%"></div></div><div class="tip" style="margin:15px 0">Calienta 5–8 minutos a intensidad suave y realiza series de aproximación en los ejercicios principales. «C» significa calentamiento, no cuenta como serie de trabajo.</div>
  
- ${a.exercises.map((it,i)=>{const ex=exercise(it.id),prev=lastSets(it.id);return `<div class="exercise-card" data-ex="${i}"><div class="exercise-head">${photoPanel(ex,0,true)}<div class="flex-grow"><div class="exercise-heading">${i+1}. ${esc(ex.name)}</div><div class="exercise-meta">${esc(ex.focus||ex.muscle)} · ${esc(ex.reps)} ${isTimed(ex)?'seg':'reps'} · ${it.rest}s descanso</div></div><button class="icon-button" data-action="exercise-info" data-id="${ex.id}" aria-label="Ver técnica">ⓘ</button></div><div class="exercise-controls"><button class="btn btn-outline btn-sm" data-action="swap" data-index="${i}">⇄ Cambiar ejercicio</button><button class="btn btn-outline btn-sm" data-action="change-rest" data-index="${i}">⏱ ${it.rest}s</button><button class="btn btn-outline btn-sm" data-action="move-exercise" data-index="${i}" data-dir="-1" ${i===0?'disabled':''}>↑</button><button class="btn btn-outline btn-sm" data-action="move-exercise" data-index="${i}" data-dir="1" ${i===a.exercises.length-1?'disabled':''}>↓</button></div><div class="set-header"><span>SERIE</span><span>PESO (kg)</span><span>${isTimed(ex)?'SEG.':'REPS'}</span><span>HECHO</span></div>${it.sets.map((set,j)=>`<div class="set-row ${set.warmup?'warmup':''} ${set.done?'done-row':''}"><span class="set-label">${set.warmup?'C · suave':j+1-it.sets.filter(x=>x.warmup).length}</span><input aria-label="Peso serie ${j+1} de ${esc(ex.name)}" data-field="set-kg" data-ex="${i}" data-set="${j}" type="number" min="0" max="1000" step="0.5" inputmode="decimal" placeholder="—" value="${esc(set.kg)}"/><input aria-label="Repeticiones serie ${j+1} de ${esc(ex.name)}" data-field="set-reps" data-ex="${i}" data-set="${j}" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="—" value="${esc(set.reps)}"/><button aria-label="Completar serie ${j+1}" class="done-toggle ${set.done?'done':''}" data-action="toggle-set" data-ex="${i}" data-set="${j}">${set.done?'✓':'○'}</button></div>`).join('')}${prev.length?`<div class="tiny muted" style="margin-top:8px">Última vez: ${prev.slice(0,2).map(s=>`${s.kg||'—'} kg × ${s.reps}${isTimed(ex)?' s':''}`).join(' · ')}</div>`:'<div class="tiny text-dim" style="margin-top:8px">Primer registro · usa una carga que puedas controlar.</div>'}
+ ${a.exercises.map((it,i)=>{const ex=exercise(it.id),prev=lastSets(it.id);return `<div class="exercise-card" data-ex="${i}"><div class="exercise-head">${photoPanel(ex,0,true)}<div class="flex-grow"><div class="exercise-heading">${i+1}. ${esc(ex.name)}</div><div class="exercise-meta">${esc(ex.focus||ex.muscle)} · ${esc(ex.reps)} ${isTimed(ex)?'seg':'reps'} · ${it.rest}s descanso</div></div><button class="icon-button" data-action="exercise-info" data-id="${ex.id}" aria-label="Ver técnica">ⓘ</button></div><div class="exercise-controls"><button class="btn btn-outline btn-sm" data-action="swap" data-index="${i}">⇄ Cambiar ejercicio</button><button class="btn btn-outline btn-sm" data-action="change-rest" data-index="${i}">⏱ ${it.rest}s</button><button class="btn btn-outline btn-sm" data-action="move-exercise" data-index="${i}" data-dir="-1" ${i===0?'disabled':''}>↑</button><button class="btn btn-outline btn-sm" data-action="move-exercise" data-index="${i}" data-dir="1" ${i===a.exercises.length-1?'disabled':''}>↓</button></div><div class="set-header"><span>SERIE</span><span>PESO (kg)</span><span>${isTimed(ex)?'SEG.':'REPS'}</span><span>HECHO</span></div>${it.sets.map((set,j)=>`<div class="set-row ${set.warmup?'warmup':''} ${set.done?'done-row':''}"><span class="set-label">${set.warmup?'C':j+1-it.sets.filter(x=>x.warmup).length}<button class="set-reason-inline ${set.reason?'has-reason':''}" data-action="series-reason" data-ex="${i}" data-set="${j}" aria-label="Anotar motivo de serie ${j+1} de ${esc(ex.name)}">✎</button></span><input aria-label="Peso serie ${j+1} de ${esc(ex.name)}" data-field="set-kg" data-ex="${i}" data-set="${j}" type="number" min="0" max="1000" step="0.5" inputmode="decimal" placeholder="—" value="${esc(set.kg)}"/><input aria-label="Repeticiones serie ${j+1} de ${esc(ex.name)}" data-field="set-reps" data-ex="${i}" data-set="${j}" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="—" value="${esc(set.reps)}"/><button aria-label="Completar serie ${j+1}" class="done-toggle ${set.done?'done':''}" data-action="toggle-set" data-ex="${i}" data-set="${j}">${set.done?'✓':'○'}</button></div>${set.reason||(!set.warmup&&Number(set.reps)>0&&targetMin(ex)>0&&Number(set.reps)<targetMin(ex))?`<div class="set-explain">${!set.warmup&&Number(set.reps)>0&&targetMin(ex)>0&&Number(set.reps)<targetMin(ex)?`<span class="tiny warn">Meta mínima: ${targetMin(ex)} ${isTimed(ex)?'seg':'reps'}</span>`:''}${set.reason?`<span class="tiny muted">${esc(setReasonText(set.reason))}</span>`:`<button class="set-reason-btn" data-action="series-reason" data-ex="${i}" data-set="${j}">＋ Anotar motivo</button>`}</div>`:''}`).join('')}${prev.length?`<div class="tiny muted" style="margin-top:8px">Última vez: ${prev.slice(0,2).map(s=>`${s.kg||'—'} kg × ${s.reps}${isTimed(ex)?' s':''}`).join(' · ')}</div>`:'<div class="tiny text-dim" style="margin-top:8px">Primer registro · usa una carga que puedas controlar.</div>'}
  <details class="ex-note" ${it.loadNote?'open':''}><summary>Nota de máquina o carga ${it.loadNote?'· guardada':''}</summary><input aria-label="Nota de máquina o carga para ${esc(ex.name)}" id="load-note-${i}" type="text" maxlength="180" autocomplete="off" data-field="load-note" data-ex="${i}" value="${esc(it.loadNote||'')}" placeholder="Ej: prensa, 2 discos de 20 kg por lado" /></details>
  <div class="exercise-timer-slot" id="exercise-timer-${i}">${renderRest(i)}</div>
  <div class="exercise-foot-actions"><button class="btn btn-secondary btn-sm" data-action="start-rest" data-index="${i}">⏱ Descansar ${it.rest}s</button>${it.added?`<button class="btn btn-outline btn-sm" data-action="remove-added" data-index="${i}">Quitar</button>`:''}</div>
@@ -159,7 +190,7 @@ function screenSettings(){return `<div class="eyebrow">PREFERENCIAS Y RESPALDOS<
  <section class="section"><h2 class="h2">Avisos de descanso</h2><div class="panel"><p class="small muted">En iPhone el aviso sonoro y visual funciona mientras PULSO sigue activa. Safari no admite vibración web y no se garantizan avisos con la pantalla bloqueada.</p><div class="field"><label>Sonido al terminar</label><select data-field="setting-restSound"><option value="1" ${st.settings.restSound!==false?'selected':''}>Activado</option><option value="0" ${st.settings.restSound===false?'selected':''}>Desactivado</option></select></div><div class="button-row" style="margin-top:10px"><button class="btn btn-secondary btn-flex" data-action="test-rest-alert">Probar aviso</button><button class="btn btn-outline btn-flex" data-action="enable-notices">Permitir notificaciones*</button></div><p class="tiny muted">* Solo en navegadores compatibles. Requiere permiso explícito y mantener activa la app; no sustituye notificaciones push con servidor.</p></div></section>
  <section class="section"><h2 class="h2">Copias de seguridad</h2><div class="panel"><p class="small muted paragraph">Los datos se guardan localmente, no en un servidor. Exporta periódicamente un respaldo JSON y guárdalo en Archivos o iCloud Drive.</p><div class="button-row"><button class="btn btn-primary btn-flex" data-action="export-data">↓ Exportar</button><button class="btn btn-secondary btn-flex" data-action="import-data">↑ Restaurar</button></div><input id="import-file" type="file" accept=".json,application/json" hidden /></div></section>
  <section class="section"><h2 class="h2">Privacidad y almacenamiento</h2><div class="panel"><div class="schedule-title">Sin cuentas ni suscripciones</div><p class="small muted paragraph">No enviamos automáticamente tus fotos, peso ni entrenamientos a ninguna nube. No hay publicidad ni analítica externa.</p><div class="divider"></div><div class="schedule-title">Imágenes de ejercicios · créditos</div><p class="small muted paragraph">Las fotos proceden de <a class="external-credit" href="https://github.com/yuhonas/free-exercise-db" target="_blank" rel="noopener">Free Exercise DB</a>. Material distribuido como Unlicense por el repositorio; parte del material original se atribuye también a Everkinetic (CC BY-SA 4.0). Para descargar las fotos offline, utiliza el botón de la biblioteca. Las que no tengan imagen validada muestran un aviso.</p><div class="divider"></div><div class="schedule-title">Uso sin conexión</div><p class="small muted paragraph">Tras abrirla con internet se conservan los archivos principales de PULSO. Las fotografías se guardan por separado al usar «Preparar fotografías» y solo estarán disponibles offline si la descarga se completó. Mantén un respaldo externo de tus registros.</p></div></section>
- <section class="section"><div class="panel"><h3 class="h3 warn">Zona de cuidado</h3><p class="small muted">Borrar todos los registros locales no se puede deshacer sin un respaldo previo.</p><button class="btn btn-danger btn-sm" data-action="reset-data">Borrar todos los datos</button></div></section><p class="footer-note">PULSO v0.6 · aplicación personal sin backend · construida para entrenar, no para acumular pantallas.</p>`}
+ <section class="section"><div class="panel"><h3 class="h3 warn">Zona de cuidado</h3><p class="small muted">Borrar todos los registros locales no se puede deshacer sin un respaldo previo.</p><button class="btn btn-danger btn-sm" data-action="reset-data">Borrar todos los datos</button></div></section><p class="footer-note">PULSO v0.7 · aplicación personal sin backend · construida para entrenar, no para acumular pantallas.</p>`}
 async function cachePhotos(){
  if(photoCaching)return;if(!('caches'in window)){toast('Este navegador no permite almacenar fotos sin conexión.');return}
  if(!navigator.onLine){toast('Conéctate a internet para preparar las fotografías.');return}
@@ -272,21 +303,55 @@ function resolveDuplicateModal(index,id){const target=exercise(id),other=st.acti
  ${hasCompleted?'<div class="tip warn-tip">Hay series marcadas como realizadas: no haremos el cambio doble para no perder registros.</div>':`<div class="tip">Para conservar ambos estímulos, elige un sustituto de ${esc(original?.focus||'foco original')} para la posición ${other+1}.</div>${replacement.map(x=>`<button class="btn btn-secondary btn-block" style="margin-top:7px;justify-content:space-between" data-action="apply-dual-swap" data-index="${index}" data-other="${other}" data-id="${id}" data-new="${x.id}"><span>${esc(x.name)}</span><span>Usar ›</span></button>`).join('')||'<p class="small muted">No hay sustitutos disponibles para resolver la duplicidad sin cambiar el foco.</p>'}`}
  <button class="btn btn-outline btn-block" style="margin-top:14px" data-action="swap" data-index="${index}">Volver a las alternativas</button>`)
 }
-function dayModal(date){const p=actualSession(date),completed=completedAt(date);const current=p.type==='strength'?p.routineId:p.type==='cardio'?'cardio':'rest';modal(`<div class="eyebrow">EDITAR DÍA</div><h2 class="title" style="font-size:24px">${esc(dayLabel(date))}</h2><p class="small muted">${completed.length?'Hay sesiones registradas. Cambiar el plan no borra ese historial.':'Selecciona qué quieres hacer este día.'}</p><div class="field"><label>Tipo de sesión</label><select id="modal-day-type">${[['rest','Descanso'],['A','Espalda y bíceps'],['B','Pecho, hombros y tríceps'],['C','Piernas y glúteos'],['FB1','Cuerpo completo A'],['FB2','Cuerpo completo B'],['cardio','Cardio Z2']].map(([v,l])=>`<option value="${v}" ${current===v?'selected':''}>${l}</option>`).join('')}</select></div><button class="btn btn-primary btn-block" style="margin-top:16px" data-action="save-day" data-date="${date}">Guardar este día</button><button class="btn btn-secondary btn-block" style="margin-top:8px" data-action="swap-day" data-date="${date}">⇄ Intercambiar con otro día</button>${!completed.length&&p.type!=='rest'?`<button class="btn btn-secondary btn-block" style="margin-top:7px" data-action="start-plan" data-date="${date}">▶ Iniciar ahora</button>`:''}`)}
+function extraSessionModal(date){
+ const recent=[...st.history].filter(x=>x.kind==='strength').sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
+ const isToday=date===tdy();const last=recent?.date===tdy()?'hoy':recent?.date===iso(addDays(parseDate(tdy()),-1))?'ayer':null;
+ const hasHistory=completedAt(date).length>0;
+ modal(`<div class="eyebrow">GIMNASIO EXTRA · OPCIONAL</div><h2 class="title" style="font-size:24px">Agregar un día adicional</h2>
+ <p class="small muted">Propuesta por defecto: full body con 2 series de trabajo por ejercicio, sin modificar tu ciclo A/B/C. ${hasHistory?'Ya tienes actividad registrada este día; quedará conservada.':''}</p>
+ ${last?`<div class="tip">Entrenaste fuerza ${last}. Antes de repetir grupos musculares, considera tu recuperación; puedes escoger cardio suave o descanso.</div>`:''}
+ <div class="field" style="margin-top:14px"><label>Sesión sugerida</label><select id="extra-routine">${[['FBX','Full body · Extra (sugerida)'],['FB1','Full body A'],['FB2','Full body B'],['A','Espalda y bíceps'],['B','Pecho, hombros y tríceps'],['C','Piernas y glúteos']].map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select></div>
+ <div class="field" style="margin-top:12px"><label>Tiempo disponible (incluye cardio)</label><select id="extra-minutes">${[30,45,60,75,90].map(n=>`<option value="${n}" ${n===60?'selected':''}>${n} minutos</option>`).join('')}</select></div>
+ <button class="btn btn-primary btn-block" style="margin-top:16px" data-action="save-extra-plan" data-date="${date}">＋ Agregar al calendario</button>
+ ${isToday?`<button class="btn btn-secondary btn-block" style="margin-top:8px" data-action="start-extra-now" data-date="${date}">▶ Empezar sesión extra ahora</button>`:''}`)
+}
+function seriesReasonModal(i,j){
+ const item=st.active?.exercises?.[i],set=item?.sets?.[j],ex=exercise(item?.id);if(!set||!ex)return;
+ const reason=set.reason||{};
+ const kinds=['Fallo muscular','Dolor/molestia','Fatiga','Pérdida de técnica','Interrupción','Otro'];
+ modal(`<div class="eyebrow">TRAZABILIDAD DE SERIES</div><h2 class="title" style="font-size:24px">Motivo o comentario</h2><p class="small muted">${esc(ex.name)} · ${set.warmup?'Calentamiento':`Serie ${j+1-item.sets.filter(s=>s.warmup).length}`} · objetivo ${esc(ex.reps)}.</p>
+ <div class="field"><label>Motivo (opcional)</label><select id="series-reason-kind"><option value="">Sin motivo</option>${kinds.map(k=>`<option value="${k}" ${reason.kind===k?'selected':''}>${k}</option>`).join('')}</select></div>
+ <div class="field" style="margin-top:12px"><label>¿Qué ocurrió? (opcional)</label><textarea id="series-reason-detail" maxlength="300" rows="3" placeholder="Ej: logré 6 de 10 por fatiga; molestia en rodilla derecha...">${esc(reason.detail||'')}</textarea></div>
+ <p class="tiny muted">Si aparece dolor, detén o modifica el ejercicio; no necesitas completar repeticiones con dolor.</p>
+ <button class="btn btn-primary btn-block" style="margin-top:14px" data-action="save-series-reason" data-ex="${i}" data-set="${j}">Guardar observación</button>`)
+}
+function dayModal(date){const p=actualSession(date),completed=completedAt(date);const current=p.type==='strength'?p.routineId:p.type==='cardio'?'cardio':'rest';modal(`<div class="eyebrow">EDITAR DÍA</div><h2 class="title" style="font-size:24px">${esc(dayLabel(date))}</h2><p class="small muted">${completed.length?'Hay sesiones registradas. Cambiar el plan no borra ese historial.':'Selecciona qué quieres hacer este día.'}</p><div class="field"><label>Tipo de sesión</label><select id="modal-day-type">${[['rest','Descanso'],['A','Espalda y bíceps'],['B','Pecho, hombros y tríceps'],['C','Piernas y glúteos'],['FB1','Cuerpo completo A'],['FB2','Cuerpo completo B'],['FBX','Full body · Extra'],['cardio','Cardio Z2']].map(([v,l])=>`<option value="${v}" ${current===v?'selected':''}>${l}</option>`).join('')}</select></div><button class="btn btn-primary btn-block" style="margin-top:16px" data-action="save-day" data-date="${date}">Guardar este día</button><button class="btn btn-secondary btn-block" style="margin-top:8px" data-action="swap-day" data-date="${date}">⇄ Intercambiar con otro día</button><button class="btn btn-outline btn-block" style="margin-top:8px" data-action="extra-session" data-date="${date}">＋ Agregar sesión extra (full body)</button>${completed.map(x=>`<button class="btn btn-outline btn-block" style="margin-top:8px" data-action="history-detail" data-id="${x.id}">✎ Corregir fecha de ${x.kind==='strength'?'gimnasio':'cardio'} registrado</button>`).join('')}${!completed.length&&p.type!=='rest'?`<button class="btn btn-secondary btn-block" style="margin-top:7px" data-action="start-plan" data-date="${date}">▶ Iniciar ahora</button>`:''}`)}
 function weightModal(){modal(`<div class="eyebrow">CONTROL DE PESO</div><h2 class="title" style="font-size:24px">Agregar medición</h2><div class="form-grid"><div class="field"><label>Fecha</label><input id="weight-date" type="date" value="${tdy()}" /></div><div class="field"><label>Peso (kg)</label><input id="weight-value" type="number" min="30" max="250" step="0.1" inputmode="decimal" placeholder="Ej: 103.0"/></div></div><p class="small muted paragraph">Para comparar tendencias, intenta pesarte bajo condiciones parecidas, sin interpretar cambios diarios como grasa ganada o perdida.</p><button class="btn btn-primary btn-block" data-action="save-weight">Guardar peso</button>`)}
 function photoModal(){modal(`<div class="eyebrow">PROGRESO FOTOGRÁFICO</div><h2 class="title" style="font-size:24px">Agregar fotografía</h2><p class="small muted paragraph">La foto se comprime y guarda solamente en el dispositivo. Evita datos identificables en el fondo si te preocupa tu privacidad.</p><div class="field"><label>Elegir imagen</label><input type="file" id="photo-input" accept="image/*" /></div><div class="field" style="margin-top:10px"><label>Fecha</label><input type="date" id="photo-date" value="${tdy()}" /></div><button class="btn btn-primary btn-block" style="margin-top:16px" data-action="save-photo">Guardar fotografía</button>`)}
 function photoView(id){const p=photos.find(x=>String(x.id)===String(id));if(!p)return;modal(`<h2 class="h2">Foto del ${dateShort(p.date)}</h2><img src="${p.dataUrl}" alt="Foto de progreso" style="width:100%;max-height:70vh;object-fit:contain;border-radius:12px;margin:14px 0"/><button class="btn btn-danger btn-block" data-action="delete-photo" data-id="${p.id}">Eliminar esta fotografía</button>`)}
-function historyModal(id){const x=st.history.find(x=>String(x.id)===String(id));if(!x)return;modal(`<div class="eyebrow">HISTORIAL GUARDADO</div><h2 class="title" style="font-size:23px">${esc(x.kind==='strength'?DATA.routines[x.routineId]?.name:'Cardio')}</h2><p class="small muted">${dateShort(x.date)}</p>${x.kind==='strength'?x.exercises.map(e=>`<div class="schedule-card"><div class="flex-grow"><strong class="small">${esc(exercise(e.id)?.name||e.id)}</strong><div class="schedule-desc">${e.sets.map(s=>`${s.kg||'—'} kg × ${s.reps}${isTimed(exercise(e.id))?' s':''}`).join(' · ')}</div>${e.loadNote?`<p class="tiny muted">Nota de carga: ${esc(e.loadNote)}</p>`:''}</div></div>`).join(''):`<p class="small">${cardioLabel(x.cardio.type)} · ${x.duration} min ${x.cardio.distance?`· ${x.cardio.distance} km`:''}</p>`}${x.z2?.duration?`<p class="small accent">+ ${x.z2.duration} min de ${cardioLabel(x.z2.type)}</p>`:''}<button class="btn btn-danger btn-block" style="margin-top:16px" data-action="delete-history" data-id="${x.id}">Eliminar registro</button>`)}
-function endWorkout(kind){const a=st.active;if(!a||a.kind!==kind)return;if(kind==='strength'){
- const finished=a.exercises.map(e=>({id:e.id,loadNote:String(e.loadNote||'').slice(0,180),sets:e.sets.filter(s=>s.done&&!s.warmup).map(s=>({kg:Number(s.kg)||0,reps:Number(s.reps)}))})).filter(e=>e.sets.length);
+function historyModal(id){
+ const x=st.history.find(x=>String(x.id)===String(id));if(!x)return;
+ const name=x.kind==='strength'?(DATA.routines[x.routineId]?.name||'Fuerza'):cardioLabel(x.cardio?.type);
+ const records=x.kind==='strength'?x.exercises.map(e=>`<div class="schedule-card"><div class="flex-grow"><strong class="small">${esc(exercise(e.id)?.name||e.id)}</strong><div class="schedule-desc">${e.sets.map(s=>`${s.kg??'—'} kg × ${s.reps}${isTimed(exercise(e.id))?' s':''}${s.reason?' · '+esc(setReasonText(s.reason)):''}`).join('<div class="history-set-separator"></div>')}</div>${e.loadNote?`<p class="tiny muted">Nota de carga: ${esc(e.loadNote)}</p>`:''}</div></div>`).join('')
+ :`<p class="small">${cardioLabel(x.cardio?.type)} · ${x.duration} min ${x.cardio?.distance?`· ${x.cardio.distance} km`:''}</p>`;
+ modal(`<div class="eyebrow">HISTORIAL GUARDADO</div><h2 class="title" style="font-size:23px">${esc(name)}${x.extra?' · Extra':''}</h2><p class="small muted">Fecha registrada: ${dateShort(x.date)}</p>${records}
+ ${x.z2?.duration?`<p class="small accent">+ ${x.z2.duration} min de ${cardioLabel(x.z2.type)}</p>`:''}
+ <div class="divider"></div><h3 class="h3">Corregir fecha real</h3><p class="tiny muted">Si realizaste una rutina programada para otro día, cambia aquí la fecha. No se borrarán las series ni las observaciones.</p>
+ <div class="field"><label>Día en que entrenaste</label><input type="date" id="history-real-date" value="${esc(x.date)}" /></div>
+ <label class="history-check"><input type="checkbox" id="history-swap-plan" checked /><span>Intercambiar también los planes de ambos días (útil si adelantaste una rutina)</span></label>
+ <button class="btn btn-primary btn-block" data-action="save-history-date" data-id="${x.id}">Guardar fecha y actualizar calendario</button>
+ <button class="btn btn-danger btn-block" style="margin-top:16px" data-action="delete-history" data-id="${x.id}">Eliminar registro</button>`)
+}
+async function endWorkout(kind){const a=st.active;if(!a||a.kind!==kind)return;if(kind==='strength'){
+ const finished=a.exercises.map(e=>({id:e.id,loadNote:String(e.loadNote||'').slice(0,180),sets:e.sets.filter(s=>s.done&&!s.warmup).map(s=>({kg:Number(s.kg)||0,reps:Number(s.reps)||0,reason:s.reason?{kind:String(s.reason.kind||''),detail:String(s.reason.detail||'').slice(0,300)}:null}))})).filter(e=>e.sets.length);
  if(!finished.length){toast('Marca al menos una serie de trabajo.');return}
  if(finished.reduce((n,x)=>n+x.sets.length,0)<totalSets()&&!confirm('Hay series pendientes. ¿Finalizar igualmente?'))return;
- st.history.push({id:Date.now(),kind,date:a.date,routineId:a.routineId,exercises:finished,z2:{type:a.z2.type,duration:Number(a.z2.duration)||0,hr:a.z2.hr,pain:Number(a.z2.pain)||0},duration:Math.round((Date.now()-a.startTime)/60000)});
+ st.history.push({id:Date.now(),kind,date:iso(new Date(a.startTime)),plannedDate:a.plannedDate||a.date,extra:!!a.extra,routineId:a.routineId,exercises:finished,z2:{type:a.z2.type,duration:Number(a.z2.duration)||0,hr:a.z2.hr,pain:Number(a.z2.pain)||0},duration:Math.round((Date.now()-a.startTime)/60000)});
  }else{
  if(!Number(a.cardio.duration)||Number(a.cardio.duration)<1){toast('Indica una duración válida.');return}
- st.history.push({id:Date.now(),kind,date:a.date,cardio:{...a.cardio},duration:Number(a.cardio.duration),pain:Number(a.cardio.pain)||0});
+ st.history.push({id:Date.now(),kind,date:iso(new Date(a.startTime)),plannedDate:a.plannedDate||a.date,extra:!!a.extra,cardio:{...a.cardio},duration:Number(a.cardio.duration),pain:Number(a.cardio.pain)||0});
  }
- st.active=null;persist();view='progress';render();window.scrollTo(0,0);toast('Entrenamiento guardado. Buen trabajo.');
+ st.active=null;await persistNow();view='progress';render();window.scrollTo(0,0);toast('Entrenamiento guardado. Buen trabajo.');
 }
 function updateActiveField(field,value,dataset){if(!st.active)return;const a=st.active;if(field==='set-kg'||field==='set-reps'){const se=a.exercises[+dataset.ex]?.sets[+dataset.set];if(!se)return;se[field==='set-kg'?'kg':'reps']=value}
  else if(field==='load-note'){const it=a.exercises[+dataset.ex];if(it)it.loadNote=String(value).slice(0,180)}
@@ -314,6 +379,37 @@ function choosePreset(preset){const cfg=structuredClone(st.weekConfig[selectedWe
 function nav(to){if(onboarding)return;view=to;window.scrollTo({top:0,behavior:'instant'});render()}
 async function dispatch(action,el){const d=el.dataset;
  switch(action){
+ case 'extra-session':extraSessionModal(d.date||tdy());break;
+ case 'save-extra-plan':{
+  const date=d.date,r=$('#extra-routine')?.value||'FBX',minute=Number($('#extra-minutes')?.value)||60;
+  if(!DATA.routines[r])break;
+  const plan=planFor(weekStart(parseDate(date))),p=plan[date];
+  if(completedAt(date).length){toast('Ese día ya tiene actividad. Usa «Empezar ahora» si quieres otra sesión hoy.');break}
+  if(p?.type!=='rest'&&!p?.extra&&!confirm('Ese día tiene una sesión planificada. ¿Sustituirla por el gimnasio extra?'))break;
+  plan[date]={type:'strength',routineId:r,minutes:minute,auto:false,extra:true};await persistNow();closeModal();render();toast('Sesión extra añadida. Tus sesiones anteriores se mantienen.');break;
+ }
+ case 'start-extra-now':{
+  if(st.active){closeModal();nav('session');toast('Termina antes la sesión en curso.');break}
+  const r=$('#extra-routine')?.value||'FBX',minute=Number($('#extra-minutes')?.value)||60;
+  if(!DATA.routines[r])break;closeModal();await startSession(tdy(),r,minute,{extra:true});break;
+ }
+ case 'series-reason':seriesReasonModal(Number(d.ex),Number(d.set));break;
+ case 'save-series-reason':{
+  const se=st.active?.exercises?.[+d.ex]?.sets?.[+d.set];if(!se)break;
+  const kind=$('#series-reason-kind')?.value||'',detail=($('#series-reason-detail')?.value||'').trim().slice(0,300);
+  se.reason=kind||detail?{kind,detail}:null;
+  await persistNow();closeModal();render();toast('Observación registrada en esta serie.');break;
+ }
+ case 'save-history-date':{
+  const x=st.history.find(z=>String(z.id)===String(d.id));if(!x)break;
+  const date=$('#history-real-date')?.value||'',old=x.date;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(parseDate(date).getTime())){toast('Fecha no válida.');break}
+  if(date!==old){
+   if($('#history-swap-plan')?.checked)swapPlannedDays(old,date);
+   x.correctedFrom=x.correctedFrom||old;x.date=date;x.dateCorrectedAt=new Date().toISOString();
+  }
+  await persistNow();closeModal();render();toast(date===old?'Fecha sin cambios.':'Fecha real corregida. Series intactas.');break;
+ }
  case 'add-exercise':exercisePickerModal();break;
  case 'create-custom':customExerciseModal();break;
  case 'pick-exercise':{if(!st.active||st.active.kind!=='strength'){toast('Inicia una sesión de fuerza para añadirlo.');break}if(st.active.exercises.some(x=>x.id===d.id)){toast('Ese ejercicio ya está en esta sesión.');break}const x=createEx(d.id,st.active.limit<=60);x.added=true;st.active.exercises.push(x);persist();closeModal();render();requestAnimationFrame(()=>document.querySelector(`[data-ex="${st.active.exercises.length-1}"]`)?.scrollIntoView({block:'start',behavior:'smooth'}));toast('Ejercicio añadido a esta sesión.');break}
@@ -334,8 +430,19 @@ async function dispatch(action,el){const d=el.dataset;
  case 'onboard-finish':await finishOnboarding();break;
  case 'nav':nav(d.view);break;
  case 'goto-session':nav('session');break;
- case 'start-home':{const n=suggestNext(),today=tdy();if(n.date!==today){const oldWeek=weekStart(parseDate(n.date)),nowWeek=thisWeek();planFor(nowWeek);st.plans[oldWeek][n.date]={type:'rest',minutes:0,auto:false};st.plans[nowWeek][today]={...n.p,auto:false};persist()}await startSession(today,n.p.type==='cardio'?'cardio':n.p.routineId,n.p.minutes);break}
- case 'start-plan':{const p=actualSession(d.date);if(st.active){closeModal();nav('session');toast('Ya tienes un entrenamiento en curso.');break}if(p.type==='rest')break;closeModal();await startSession(d.date,p.type==='cardio'?'cardio':p.routineId,p.minutes);break}
+ case 'start-home':{
+  const n=suggestNext(),today=tdy();
+  if(n.extraSuggestion){extraSessionModal(today);break}
+  if(n.date!==today)swapPlannedDays(n.date,today);
+  await startSession(n.date,n.p.type==='cardio'?'cardio':n.p.routineId,n.p.minutes);break;
+ }
+ case 'start-plan':{
+  const p=actualSession(d.date),today=tdy();
+  if(st.active){closeModal();nav('session');toast('Ya tienes un entrenamiento en curso.');break}
+  if(p.type==='rest')break;
+  if(d.date!==today)swapPlannedDays(d.date,today);
+  closeModal();await startSession(d.date,p.type==='cardio'?'cardio':p.routineId,p.minutes,{extra:!!p.extra});break;
+ }
  case 'manual-start':await startSession(tdy(),d.routine,90);break;
  case 'quick-cardio':await startSession(tdy(),'cardio',45);break;
  case 'quick-weight':weightModal();break;
@@ -365,19 +472,29 @@ async function dispatch(action,el){const d=el.dataset;
  case 'move-exercise':{const i=+d.index,j=i+Number(d.dir),arr=st.active.exercises;if(j>=0&&j<arr.length){[arr[i],arr[j]]=[arr[j],arr[i]];persist();render()}break}
  case 'change-rest':{const it=st.active.exercises[+d.index];modal(`<div class="eyebrow">DESCANSO POR EJERCICIO</div><h2 class="title" style="font-size:24px">${esc(exercise(it.id).name)}</h2><div class="field"><label>Segundos entre series</label><select id="rest-value">${[45,60,75,90,120,150,180,240].map(n=>`<option value="${n}" ${it.rest===n?'selected':''}>${n}s</option>`).join('')}</select></div><button class="btn btn-primary btn-block" style="margin-top:15px" data-action="save-rest" data-index="${d.index}">Guardar descanso</button>`);break}
  case 'save-rest':st.active.exercises[+d.index].rest=Number($('#rest-value').value);persist();closeModal();render();break;
- case 'toggle-set':{const it=st.active.exercises[+d.ex],se=it.sets[+d.set];if(!se.done&&(!se.reps||Number(se.reps)<=0)){toast('Introduce las repeticiones antes de completar.');break}se.done=!se.done;if(se.done&&!se.warmup){startRestFor(Number(d.ex));break}else if(!se.done){st.active.restUntil=0;st.active.restExercise=null}persist();render();break}
+ case 'toggle-set':{
+  const it=st.active?.exercises?.[+d.ex],se=it?.sets?.[+d.set];if(!se)break;
+  if(!se.done){
+   const reps=Number(se.reps);
+   if((String(se.reps).trim()===''&&!se.reason)||!Number.isFinite(reps)||reps<0||(reps===0&&!se.reason)){toast('Introduce repeticiones o registra un motivo para una serie sin repeticiones.');break}
+   if(String(se.reps).trim()==='')se.reps='0';
+  }
+  se.done=!se.done;
+  if(se.done){startRestFor(Number(d.ex))}else{st.active.restUntil=0;st.active.restExercise=null;persist();render()}
+  break;
+ }
  case 'rest-plus':st.active.restUntil+=15000;persist();tick();break;
  case 'rest-minus':st.active.restUntil=Math.max(Date.now(),st.active.restUntil-15000);persist();tick();break;
  case 'rest-stop':st.active.restUntil=0;st.active.restExercise=null;persist();document.querySelectorAll('.exercise-timer-slot').forEach(x=>x.innerHTML='');break;
- case 'finish-strength':endWorkout('strength');break;
- case 'finish-cardio':endWorkout('cardio');break;
+ case 'finish-strength':await endWorkout('strength');break;
+ case 'finish-cardio':await endWorkout('cardio');break;
  case 'cancel-session':if(confirm('¿Descartar esta sesión sin guardarla en el historial?')){st.active=null;persist();nav('home')}break;
  case 'week-shift':selectedWeek=iso(addDays(parseDate(selectedWeek),Number(d.n)));render();break;
  case 'go-current-week':selectedWeek=thisWeek();render();break;
  case 'autoplan':autoPlan(selectedWeek);render();toast('Plan reorganizado según tu tiempo.');break;
  case 'preset-week':choosePreset(d.preset);break;
  case 'day-detail':dayModal(d.date);break;
- case 'save-day':{const v=$('#modal-day-type').value,w=weekStart(parseDate(d.date)),old=actualSession(d.date),p=v==='rest'?{type:'rest',minutes:0,auto:false}:v==='cardio'?{type:'cardio',minutes:old.minutes||45,auto:false}:{type:'strength',routineId:v,minutes:old.minutes||90,auto:false};st.plans[w][d.date]=p;persist();closeModal();render();toast('Día actualizado.');break}
+ case 'save-day':{const v=$('#modal-day-type').value,w=weekStart(parseDate(d.date)),old=actualSession(d.date),p=v==='rest'?{type:'rest',minutes:0,auto:false}:v==='cardio'?{type:'cardio',minutes:old.minutes||45,auto:false}:{type:'strength',routineId:v,minutes:old.minutes||90,auto:false,extra:v==='FBX'};st.plans[w][d.date]=p;persist();closeModal();render();toast('Día actualizado.');break}
  case 'close-modal':closeModal();break;
  case 'export-data':await exportData();break;
  case 'import-data':$('#import-file').click();break;
@@ -399,5 +516,5 @@ document.addEventListener('change',e=>{if(e.target.dataset.onboard&&onboarding){
 document.addEventListener('input',e=>{if(e.target.dataset?.field&&['set-kg','set-reps','load-note','z2-duration','z2-hr','cardio-duration','cardio-distance','cardio-hr'].includes(e.target.dataset.field))updateActiveField(e.target.dataset.field,e.target.value,e.target.dataset);if(e.target.id==='picker-search'){const results=$('#picker-list');if(results)results.innerHTML=pickerRows(e.target.value)}if(e.target.id==='lib-search'){librarySearch=e.target.value;const rows=$('#library-results');if(rows)rows.innerHTML=libraryRows()}});
 window.addEventListener('pageshow',()=>tick());
 setInterval(tick,1000);
-(async function init(){try{db=await openDB();const stored=await dbGet('data','state');if(stored&&stored.version===1){st={...fresh(),...stored,onboardingDone:true};photos=await dbAll('photos');planFor(thisWeek());render()}else{photos=await dbAll('photos');beginOnboarding('new')}if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('Service worker:',e))}catch(e){console.error(e);$('#screen').innerHTML=`<div class="panel"><h2>No se pudo abrir el almacenamiento</h2><p>Abre la aplicación desde Safari mediante una dirección HTTPS. Evita el modo privado. Error: ${esc(e.message)}</p></div>`}})();
+(async function init(){try{db=await openDB();const stored=await dbGet('data','state');if(stored&&stored.version===1){st={...fresh(),...stored,onboardingDone:true};if(st.active?.startTime&&st.active.date!==iso(new Date(st.active.startTime))){st.active.plannedDate=st.active.plannedDate||st.active.date;st.active.date=iso(new Date(st.active.startTime));persist()}photos=await dbAll('photos');planFor(thisWeek());render()}else{photos=await dbAll('photos');beginOnboarding('new')}if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('Service worker:',e))}catch(e){console.error(e);$('#screen').innerHTML=`<div class="panel"><h2>No se pudo abrir el almacenamiento</h2><p>Abre la aplicación desde Safari mediante una dirección HTTPS. Evita el modo privado. Error: ${esc(e.message)}</p></div>`}})();
 })();
